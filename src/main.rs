@@ -1,4 +1,5 @@
 use std::ops::{Add,Mul,Neg,Not,Rem,Sub};
+use std::vec::Vec;
 use rand::prelude::*;
 
 #[derive(Debug)]
@@ -140,6 +141,11 @@ fn main() {
     let mut rng = rand::thread_rng();
     wf = wf / 2.;
 
+    let mut framebuffer : Vec<Vec3f> = Vec::with_capacity(w*h);
+    for _ in 0..w*h {
+        framebuffer.push(Vec3f::from_float(0.));
+    }
+
     //Cross product to get up from goal x left
     let up = Vec3f::new(
         goal.y*left.z - goal.z*left.y,
@@ -149,8 +155,8 @@ fn main() {
 
     println!("P3 {} {} 255\n", w, h);
 
-    for y in (0..h).rev() {
-        for x in (0..w).rev() {
+    for y in 0..h {
+        for x in 0..w {
             let mut color = Vec3f::from_float(0.0);
             let xf = x as f32;
             let yf = y as f32;
@@ -169,8 +175,12 @@ fn main() {
             color = &color.scale(1.0 / samples as f32) + &(Vec3f::from_float(14.0/241.0));
             let o = &color + &(Vec3f::from_float(1.0));
             color = Vec3f::new(color.x / o.x, color.y / o.y, color.z / o.z).scale(255.);
-            println!(" {} {} {}", color.x as u8, color.y as u8, color.z as u8);
+            framebuffer[x+y*w] = color;
         }
+    }
+
+    for v in framebuffer.iter().rev() {
+        println!(" {} {} {}", v.x as u8, v.y as u8, v.z as u8);
     }
 }
 
