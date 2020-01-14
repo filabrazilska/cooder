@@ -1,8 +1,11 @@
+extern crate crossbeam_utils;
+extern crate num_cpus;
 use std::ops::{Add,Mul,Neg,Not,Rem,Sub};
 use std::vec::Vec;
+use crossbeam_utils::thread;
 use rand::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Copy)]
 struct Vec3f {
     x : f32,
     y : f32,
@@ -138,10 +141,9 @@ fn main() {
     let position = Vec3f::new( -22.0, 5.0, 25.0 );
     let goal = !&(&Vec3f::new(-3.0, 4.0, 0.0) - &position);
     let left : Vec3f = (!&Vec3f::new(goal.z, 0.0, -goal.x)).scale(1./wf);
-    let mut rng = rand::thread_rng();
     wf = wf / 2.;
 
-    let mut framebuffer : Vec<Vec3f> = Vec::with_capacity(w*h);
+    let mut framebuffer : Vec<Vec3f> = Vec::new();
     for _ in 0..w*h {
         framebuffer.push(Vec3f::from_float(0.));
     }
@@ -153,32 +155,58 @@ fn main() {
         goal.x*left.y - goal.y*left.x,
     );
 
-    println!("P3 {} {} 255\n", w, h);
+    let cpus = num_cpus::get();
 
-    for y in 0..h {
-        for x in 0..w {
-            let mut color = Vec3f::from_float(0.0);
-            let xf = x as f32;
-            let yf = y as f32;
-            for _ in 0..samples {
-                color = &color +
-                        &trace(&position, &!&(
-                            &goal +
-                            &( &(left.scale(xf-wf+random_val(&mut rng))) +
-                               &(up.scale(yf-hf+random_val(&mut rng))))
-                            ),
-                            &mut rng
-                        );
-            }
-
-            //Reinhard tone-mapping
-            color = &color.scale(1.0 / samples as f32) + &(Vec3f::from_float(14.0/241.0));
-            let o = &color + &(Vec3f::from_float(1.0));
-            color = Vec3f::new(color.x / o.x, color.y / o.y, color.z / o.z).scale(255.);
-            framebuffer[x+y*w] = color;
-        }
+    let mut chunk_len = framebuffer.len() / cpus;
+    if chunk_len * cpus != framebuffer.len() {
+        chunk_len += 1;
     }
+    let fb_chunks = framebuffer.chunks_mut(chunk_len);
 
+    thread::scope(|s| {
+        let mut i = 0;
+        for c in fb_chunks {
+            s.spawn(move |_| {
+                let mut rng = rand::thread_rng();
+
+                // find starting y, x
+                let mut y = (chunk_len*i)/w;
+                let mut x = (chunk_len*i)%w;
+                for pix in c.iter_mut() {
+
+                    let mut color = Vec3f::from_float(0.0);
+                    let xf = x as f32;
+                    let yf = y as f32;
+                    for _ in 0..samples {
+                        color = &color +
+                                &trace(&position, &!&(
+                                    &goal +
+                                    &( &(left.scale(xf-wf+random_val(&mut rng))) +
+                                       &(up.scale(yf-hf+random_val(&mut rng))))
+                                    ),
+                                    &mut rng
+                                );
+                    }
+
+                    //Reinhard tone-mapping
+                    color = &color.scale(1.0 / samples as f32) + &(Vec3f::from_float(14.0/241.0));
+                    let o = &color + &(Vec3f::from_float(1.0));
+                    color = Vec3f::new(color.x / o.x, color.y / o.y, color.z / o.z).scale(255.);
+                    *pix = color; // framebuffer[(x+y*(w)) as usize] = color;
+
+                    if x == w-1 {
+                        x = 0;
+                        y += 1;
+                    } else {
+                        x += 1;
+                    }
+                }
+            });
+            i += 1;
+        }
+    }).unwrap();
+
+    println!("P3 {} {} 255\n", w, h);
     for v in framebuffer.iter().rev() {
         println!(" {} {} {}", v.x as u8, v.y as u8, v.z as u8);
     }
