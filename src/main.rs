@@ -1,9 +1,14 @@
 extern crate crossbeam_utils;
 extern crate num_cpus;
+use std::fs::File;
+use std::io::BufWriter;
 use std::ops::{Add,Mul,Neg,Not,Rem,Sub};
+use std::path::PathBuf;
 use std::vec::Vec;
 use crossbeam_utils::thread;
+use png;
 use rand::prelude::*;
+use structopt::StructOpt;
 
 #[derive(Debug,Clone,Copy)]
 struct Vec3f {
@@ -132,16 +137,37 @@ impl Vec3f {
     }
 }
 
+#[derive(Debug,StructOpt)]
+#[structopt(name="cooder", about="A toy ray tracer")]
+struct Opt {
+    // Output file
+    #[structopt(parse(from_os_str), default_value="dump.png", short, long)]
+    output: PathBuf,
+
+    #[structopt(default_value="320", short, long)]
+    width: usize,
+
+    #[structopt(default_value="200", short, long)]
+    height: usize,
+
+    #[structopt(default_value="16", short, long)]
+    samples: u16,
+}
+
 fn main() {
-    let w = 960;
-    let h = 540;
+    let opt = Opt::from_args();
+    let w = opt.width;
+    let h = opt.height;
     let mut wf = w as f32;
     let hf = h as f32/2.;
-    let samples = 64;
+    let samples = opt.samples;
     let position = Vec3f::new( -22.0, 5.0, 25.0 );
     let goal = !&(&Vec3f::new(-3.0, 4.0, 0.0) - &position);
     let left : Vec3f = (!&Vec3f::new(goal.z, 0.0, -goal.x)).scale(1./wf);
     wf = wf / 2.;
+
+    let output_file = File::create(opt.output).unwrap();
+    let ref mut output_buffer = BufWriter::new(output_file);
 
     let mut framebuffer : Vec<Vec3f> = Vec::new();
     for _ in 0..w*h {
@@ -206,10 +232,23 @@ fn main() {
         }
     }).unwrap();
 
-    println!("P3 {} {} 255\n", w, h);
-    for v in framebuffer.iter().rev() {
-        println!(" {} {} {}", v.x as u8, v.y as u8, v.z as u8);
+    write_output_file(output_buffer, opt.width as u32, opt.height as u32, &framebuffer);
+}
+
+fn write_output_file(output_buffer : &mut BufWriter<std::fs::File>, width : u32, height : u32, framebuffer : &Vec<Vec3f>) {
+    let mut encoder = png::Encoder::new(output_buffer, width, height);
+    encoder.set_color(png::ColorType::RGB);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().unwrap();
+
+    let mut data : Vec<u8> = Vec::new();
+    for v in framebuffer {
+        data.push(v.x as u8);
+        data.push(v.y as u8);
+        data.push(v.z as u8);
     }
+    data.reverse(); // correct image orientation
+    writer.write_image_data(&data).unwrap(); // Save
 }
 
 // ================== CSG primitives ==================

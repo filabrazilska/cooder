@@ -7,5 +7,7 @@ edition = "2018"
 [dependencies]
 crossbeam = "0.7"
 crossbeam-utils = "0.7"
+png = "0.15"
 rand = "0.6"
 num_cpus = "1.9"
+structopt = "0.3"
