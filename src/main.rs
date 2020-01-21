@@ -227,9 +227,6 @@ fn ray_march(origin : &Vec3f, direction : &Vec3f, hit_position : &mut Vec3f, nor
 }
 
 fn query_db(position : &Vec3f, hit_type : &mut HitType) -> f32 {
-    let mut f = Vec3f::copy(position); // flattened position (z=0)
-    f.z = 0.;
-
     let mut dist = min(// min(A,B) = Union with Constructive solid geometry
         //-min carves an empty space
         -min(
