@@ -39,10 +39,10 @@ fn main() {
     let position = Vec3f::new( -22.0, 5.0, 25.0 );
     let goal = !&(&Vec3f::new(-3.0, 4.0, 0.0) - &position);
     let left : Vec3f = (!&Vec3f::new(goal.z, 0.0, -goal.x)).scale(1./wf);
-    wf = wf / 2.;
+    wf /= 2.;
 
     let output_file = File::create(opt.output).unwrap();
-    let ref mut output_buffer = BufWriter::new(output_file);
+    let output_buffer = &mut BufWriter::new(output_file);
 
     let mut framebuffer : Vec<Vec3f> = Vec::new();
     for _ in 0..w*h {
@@ -110,7 +110,7 @@ fn main() {
     write_output_file(output_buffer, opt.width as u32, opt.height as u32, &framebuffer);
 }
 
-fn write_output_file(output_buffer : &mut BufWriter<std::fs::File>, width : u32, height : u32, framebuffer : &Vec<Vec3f>) {
+fn write_output_file(output_buffer : &mut BufWriter<std::fs::File>, width : u32, height : u32, framebuffer : &[Vec3f]) {
     let mut encoder = png::Encoder::new(output_buffer, width, height);
     encoder.set_color(png::ColorType::RGB);
     encoder.set_depth(png::BitDepth::Eight);
@@ -169,7 +169,7 @@ fn trace(position : &Vec3f, direction : &Vec3f, rng : &mut ThreadRng) -> Vec3f {
             }
             HitType::WALL => {
                 let incidence : f32 = &normal%&light_direction;
-                let p : f32 = 6.283185 * random_val(rng);
+                let p : f32 = 6.283_185 * random_val(rng);
                 let c = random_val(rng);
                 let s = (1. - c).sqrt();
                 let g = match normal.z {
@@ -183,7 +183,7 @@ fn trace(position : &Vec3f, direction : &Vec3f, rng : &mut ThreadRng) -> Vec3f {
                     &(Vec3f::new(1. + g * normal.x * normal.x * u, g * v, -g * normal.x).scale(s*p.sin()))) +
                     &(normal.scale(c.sqrt()));
                 current_position = &sampled_position + &(current_direction.scale(0.1));
-                attenuation = attenuation * 0.2;
+                attenuation *= 0.2;
                 let refl_position : Vec3f = &sampled_position + &(normal.scale(0.1)); // just to ensure we don't hit ourselves again
                 if incidence > 0. && ray_march(&refl_position, &light_direction, &mut sampled_position, &mut normal) == HitType::SUN {
                     color = &color + &(Vec3f::new(500., 400., 100.).scale(attenuation*incidence));
@@ -206,8 +206,8 @@ fn ray_march(origin : &Vec3f, direction : &Vec3f, hit_position : &mut Vec3f, nor
     while total_dist < 100. {
         hit_position.reset(&(origin + &(direction.scale(total_dist))));
         let closest_dist = query_db(hit_position, &mut hit_type);
-        total_dist = total_dist + closest_dist;
-        hit_count = hit_count + 1;
+        total_dist += closest_dist;
+        hit_count += 1;
         if closest_dist < 0.01 || hit_count > 99 {
             let mut throwaway_hc1 = HitType::NONE;
             let mut throwaway_hc2 = HitType::NONE;
@@ -223,7 +223,7 @@ fn ray_march(origin : &Vec3f, direction : &Vec3f, hit_position : &mut Vec3f, nor
             return hit_type
         }
     }
-    return HitType::NONE
+    HitType::NONE
 }
 
 fn query_db(position : &Vec3f, hit_type : &mut HitType) -> f32 {
@@ -247,7 +247,7 @@ fn query_db(position : &Vec3f, hit_type : &mut HitType) -> f32 {
         *hit_type = HitType::SUN;
     }
 
-    return dist
+    dist
 }
 
 // ================== Utils ==================
@@ -274,5 +274,5 @@ fn box_test(position : &Vec3f, lower_left : &Vec3f, upper_right : &Vec3f) -> f32
     let miny = ll.y.min(ur.y);
     let minz = ll.z.min(ur.z);
     let minxy = minx.min(miny);
-    return -(minxy.min(minz))
+    -(minxy.min(minz))
 }

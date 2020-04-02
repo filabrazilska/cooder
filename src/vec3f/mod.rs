@@ -66,7 +66,7 @@ impl<'a> Not for &'a Vec3f {
     type Output = Vec3f;
 
     fn not(self) -> Vec3f {
-        self.scale(1 as f32 / (self%self).sqrt())
+        self.scale(1_f32 / (self%self).sqrt())
     }
 }
 
@@ -89,11 +89,7 @@ impl<'a> Neg for &'a Vec3f {
 
 impl Vec3f {
     pub fn new(x : f32, y : f32, z : f32) -> Vec3f {
-        Vec3f {
-            x : x,
-            y : y,
-            z : z,
-        }
+        Vec3f { x, y, z, }
     }
 
     pub fn from_float(f : f32) -> Vec3f {
@@ -120,7 +116,7 @@ impl Vec3f {
         }
     }
 
-    pub fn reset(&mut self, other : &Vec3f) -> () {
+    pub fn reset(&mut self, other : &Vec3f) {
         self.x = other.x;
         self.y = other.y;
         self.z = other.z;
